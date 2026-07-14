@@ -1,0 +1,30 @@
+# Entorno virtual
+env/
+venv/
+.venv/
+
+# Variables de entorno (credenciales)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Base de datos local
+*.db
+*.sqlite3
+
+# Archivos subidos por usuarios
+archivos_reclamaciones/
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+# Scripts de prueba
+probar_conexion.py
