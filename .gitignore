@@ -26,5 +26,8 @@ archivos_reclamaciones/
 # VS Code
 .vscode/
 
+# Vite cache (no pertenece al backend)
+.vite/
+
 # Scripts de prueba
 probar_conexion.py
