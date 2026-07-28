@@ -76,6 +76,35 @@ def obtener_reclamacion(rec_id: str, db: Session = Depends(get_db)):
     return _build_response(rec)
 
 
+@router.put("/{rec_id}", response_model=ReclamacionResponse)
+async def editar_reclamacion(
+    rec_id: str,
+    vin: Optional[str] = Form(None),
+    vehiculo: Optional[str] = Form(None),
+    tipo_novedad: Optional[str] = Form(None),
+    transportadora: Optional[str] = Form(None),
+    no_remesa: Optional[str] = Form(None),
+    no_manifiesto: Optional[str] = Form(None),
+    descripcion: Optional[str] = Form(None),
+    sede: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    rec = db.query(Reclamacion).filter(Reclamacion.id == rec_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="Reclamación no encontrada")
+    if vin is not None:            rec.vin = vin.strip().upper()
+    if vehiculo is not None:       rec.vehiculo = vehiculo
+    if tipo_novedad is not None:   rec.tipo_novedad = tipo_novedad
+    if transportadora is not None: rec.transportadora = transportadora
+    if no_remesa is not None:      rec.no_remesa = no_remesa
+    if no_manifiesto is not None:  rec.no_manifiesto = no_manifiesto
+    if descripcion is not None:    rec.descripcion = descripcion
+    if sede is not None:           rec.sede = sede
+    db.commit()
+    db.refresh(rec)
+    return _build_response(rec)
+
+
 @router.post("/", response_model=ReclamacionResponse, status_code=status.HTTP_201_CREATED)
 async def crear_reclamacion(
     vin: str = Form(...),

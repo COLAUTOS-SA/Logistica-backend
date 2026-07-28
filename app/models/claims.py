@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Date
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -82,3 +82,14 @@ class HistorialMovimiento(Base):
     detalle = Column(Text, nullable=True)
 
     reclamacion = relationship("Reclamacion", back_populates="historial")
+
+
+class NotificacionEnviada(Base):
+    """Evita enviar el mismo correo de alerta más de una vez por día."""
+    __tablename__ = "notificaciones_enviadas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reclamacion_id = Column(String(30), nullable=False, index=True)
+    # tipo: 'alerta' (próxima a vencer) | 'vencida'
+    tipo = Column(String(20), nullable=False)
+    fecha = Column(Date, nullable=False, index=True)

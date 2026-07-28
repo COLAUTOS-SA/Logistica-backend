@@ -66,6 +66,66 @@ def obtener_documento(doc_id: str, db: Session = Depends(get_db)):
     return _to_response(doc)
 
 
+@router.put("/{doc_id}", response_model=DocumentoResponse)
+async def editar_documento(
+    doc_id: str,
+    numero: Optional[str] = Form(None),
+    fecha: Optional[str] = Form(None),
+    vin: Optional[str] = Form(None),
+    vehiculo: Optional[str] = Form(None),
+    manifiesto_no: Optional[str] = Form(None),
+    remesa_no: Optional[str] = Form(None),
+    transportadora: Optional[str] = Form(None),
+    origen: Optional[str] = Form(None),
+    destino: Optional[str] = Form(None),
+    conductor: Optional[str] = Form(None),
+    placa: Optional[str] = Form(None),
+    vehiculos_json: Optional[str] = Form(None),
+    peso: Optional[str] = Form(None),
+    remitente: Optional[str] = Form(None),
+    destinatario: Optional[str] = Form(None),
+    archivo: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    doc = db.query(Documento).filter(Documento.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    if numero is not None:       doc.numero = numero
+    if fecha is not None:        doc.fecha = fecha
+    if vin is not None:          doc.vin = vin.strip().upper() if vin.strip() else None
+    if vehiculo is not None:     doc.vehiculo = vehiculo
+    if manifiesto_no is not None: doc.manifiesto_no = manifiesto_no
+    if remesa_no is not None:    doc.remesa_no = remesa_no
+    if transportadora is not None: doc.transportadora = transportadora
+    if origen is not None:       doc.origen = origen
+    if destino is not None:      doc.destino = destino
+    if conductor is not None:    doc.conductor = conductor
+    if placa is not None:        doc.placa = placa
+    if vehiculos_json is not None: doc.vehiculos_json = vehiculos_json
+    if peso is not None:         doc.peso = peso
+    if remitente is not None:    doc.remitente = remitente
+    if destinatario is not None: doc.destinatario = destinatario
+
+    if archivo and archivo.filename:
+        ruta = guardar_documento(archivo, doc.tipo, doc.numero)
+        doc.nombre_archivo = archivo.filename
+        doc.ruta_relativa = ruta
+
+    db.commit()
+    db.refresh(doc)
+    return _to_response(doc)
+
+
+@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_documento(doc_id: str, db: Session = Depends(get_db)):
+    doc = db.query(Documento).filter(Documento.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+    db.delete(doc)
+    db.commit()
+
+
 @router.post("/", response_model=DocumentoResponse, status_code=status.HTTP_201_CREATED)
 async def crear_documento(
     tipo: str = Form(...),              # manifiesto | remesa | inventario | inventario_traslado

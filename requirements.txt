@@ -9,3 +9,4 @@ passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
 pymysql==1.1.1
 cryptography==44.0.3
+apscheduler==3.10.4

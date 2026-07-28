@@ -3,7 +3,7 @@ from urllib.parse import quote_plus
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
-load_dotenv()
+load_dotenv(override=True)
 
 def _build_db_url() -> str:
     host = os.getenv("DB_HOST", "")
