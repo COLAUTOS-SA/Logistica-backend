@@ -77,7 +77,7 @@ app.add_middleware(
 )
 
 # Servir archivos estáticos (fotos, videos, PDFs, etc.)
-# Accesibles en: http://localhost:8000/archivos/2026/06/REC-2026-001/foto.jpg
+# Accesibles en: https://logistica.colautos.co/api/archivos/2026/06/REC-2026-001/foto.jpg
 app.mount("/archivos", StaticFiles(directory=BASE_ARCHIVOS), name="archivos")
 
 # Registrar todos los routers

@@ -13,7 +13,7 @@ from app.schemas.documents import DocumentoResponse
 
 router = APIRouter(prefix="/documentos", tags=["Documentos"])
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "https://logistica.colautos.co/api"
 
 
 def _generar_id_doc(db: Session) -> str:

@@ -37,7 +37,7 @@ def _generar_id(db: Session) -> str:
     return f"{prefijo}{str(cantidad + 1).zfill(3)}"
 
 
-def _build_response(rec: Reclamacion, base_url: str = "http://localhost:8000") -> dict:
+def _build_response(rec: Reclamacion, base_url: str = "https://logistica.colautos.co/api") -> dict:
     """Construye la respuesta con dias_habiles calculado y URLs de archivos."""
     dias = dias_habiles_transcurridos(rec.fecha_reporte)
     archivos = [
