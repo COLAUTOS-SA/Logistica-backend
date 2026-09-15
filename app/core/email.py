@@ -1,10 +1,12 @@
 import html as _html
-import smtplib
 from datetime import date
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
-from dotenv import dotenv_values
+
+import sendgrid
+from sendgrid.helpers.mail import Mail, Email, To
+from python_http_client.exceptions import HTTPError
+
+from app.core.config import settings
 
 
 def _e(valor) -> str:
@@ -16,28 +18,63 @@ LOGO_URL = "https://i.imgur.com/F6hIOU4.png"
 print(f"[EMAIL] Logo configurado: {LOGO_URL}")
 
 
-# ── SMTP ──────────────────────────────────────────────────────────────────────
+# ── SENDGRID ──────────────────────────────────────────────────────────────────────
 
-def _smtp_send(destinatarios: list, subject: str, html: str) -> None:
-    cfg = dotenv_values(_env_path)
-    smtp_host = cfg.get("EMAIL_HOST", "smtp.gmail.com")
-    smtp_port = int(cfg.get("EMAIL_PORT", "587"))
-    smtp_user = cfg.get("EMAIL_USER", "")
-    smtp_pass = cfg.get("EMAIL_PASS", "").replace(" ", "")
-    print(f"[EMAIL] Enviando a {destinatarios}")
-    if not smtp_user or not smtp_pass:
-        print("[EMAIL] Credenciales no configuradas")
+def _sendgrid_send(destinatarios: list, subject: str, html: str) -> None:
+    """Envía correos mediante la API HTTP de Twilio SendGrid."""
+
+    if not destinatarios:
         return
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = smtp_user
-    msg["To"]      = ", ".join(destinatarios)
-    msg.attach(MIMEText(html, "html", "utf-8"))
-    with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-        server.ehlo(); server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, destinatarios, msg.as_bytes())
-    print(f"[EMAIL] '{subject}' enviado")
+
+    api_key = settings.SENDGRID_API_KEY.strip()
+    email_from = settings.EMAIL_FROM.strip()
+
+    if not api_key:
+        raise RuntimeError("SENDGRID_API_KEY no está configurada.")
+
+    if not email_from:
+        raise RuntimeError("EMAIL_FROM no está configurado.")
+
+    print(f"[EMAIL] Enviando a {destinatarios}")
+    print(f"[EMAIL] Remitente: {email_from}")
+
+    cliente = sendgrid.SendGridAPIClient(api_key=api_key)
+
+    for destinatario in destinatarios:
+        mensaje = Mail(
+            from_email=Email(
+                email_from,
+                "COLAUTOS Logistica"
+            ),
+            to_emails=To(destinatario),
+            subject=subject,
+            html_content=html,
+        )
+
+        try:
+            respuesta = cliente.client.mail.send.post(
+                request_body=mensaje.get()
+            )
+
+            if respuesta.status_code != 202:
+                raise RuntimeError(
+                    f"SendGrid respondió con HTTP {respuesta.status_code}"
+                )
+
+            print(
+                f"[EMAIL] Correo enviado correctamente a {destinatario}"
+            )
+
+        except HTTPError as error:
+            print(
+                f"[EMAIL] SendGrid rechazó el correo "
+                f"(HTTP {error.status_code})"
+            )
+
+            if getattr(error, "body", None):
+                print(f"[EMAIL] Respuesta: {error.body}")
+
+            raise
 
 
 # ── Estructura base ───────────────────────────────────────────────────────────
@@ -170,7 +207,7 @@ def enviar_correo_nueva_reclamacion(destinatarios: list, reclamacion: dict, url_
 
     html = _wrap(titulo, subtitulo, "#1e4d2b", cuerpo)
     subject = f"COLAUTOS – Nueva reclamación · {_e(r.get('id'))}"
-    _smtp_send(destinatarios, subject, html)
+    _sendgrid_send(destinatarios, subject, html)
 
 
 # ── Email 2: Alertas de vencimiento ──────────────────────────────────────────
@@ -223,7 +260,7 @@ def enviar_correo_vencimientos(destinatarios: list, alertas: list, vencidas: lis
 
     html = _wrap(titulo, subtitulo, "#991b1b", cuerpo)
     subject = f"COLAUTOS – {total} alerta(s) de vencimiento · {fecha_str}"
-    _smtp_send(destinatarios, subject, html)
+    _sendgrid_send(destinatarios, subject, html)
 
 
 # ── Email 3: Novedad enviada a Colisión ──────────────────────────────────────
@@ -283,4 +320,4 @@ def enviar_correo_colision(destinatarios: list, reclamacion: dict, url_acceso: s
 
     html = _wrap(titulo, subtitulo, "#1e3a5f", cuerpo)
     subject = f"COLAUTOS – Novedad asignada a Colisión · {r.get('id','')}"
-    _smtp_send(destinatarios, subject, html)
+    _sendgrid_send(destinatarios, subject, html)
