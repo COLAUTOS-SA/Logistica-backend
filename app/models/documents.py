@@ -43,3 +43,6 @@ class Documento(Base):
     peso = Column(String(50), nullable=True)
     remitente = Column(String(150), nullable=True)
     destinatario = Column(String(150), nullable=True)
+
+    # Observación general (todos los tipos)
+    observacion = Column(Text, nullable=True)

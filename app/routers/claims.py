@@ -7,8 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.email import enviar_correo_nueva_reclamacion, enviar_correo_colision
+from app.core.tokens import generar_url_acceso
 from app.core.files import guardar_archivo, dias_habiles_transcurridos, BASE_ARCHIVOS
 from app.models.claims import Reclamacion, Archivo, HistorialMovimiento
+from app.models.users import Usuario
 from app.schemas.claims import (
     ReclamacionCreate, ReclamacionResponse, ArchivoResponse,
     CambiarEstadoRequest, SubirCotizacionRequest
@@ -166,6 +169,34 @@ async def crear_reclamacion(
 
     db.commit()
     db.refresh(nueva)
+
+    # Notificar a admins y asistentes — correo individual con magic link por usuario
+    try:
+        users_notificar = (
+            db.query(Usuario)
+            .filter(Usuario.rol.in_(["admin", "asistente"]), Usuario.activo.is_(True))
+            .all()
+        )
+        datos_rec = {
+            "id":            nueva.id,
+            "vin":           nueva.vin,
+            "vehiculo":      nueva.vehiculo,
+            "tipo_novedad":  nueva.tipo_novedad,
+            "descripcion":   nueva.descripcion,
+            "transportadora": nueva.transportadora,
+            "no_remesa":     nueva.no_remesa,
+            "no_manifiesto": nueva.no_manifiesto,
+            "sede":          nueva.sede or "—",
+            "reportado_por": nueva.reportado_por,
+            "fecha_reporte": nueva.fecha_reporte,
+        }
+        for u in users_notificar:
+            if u.email:
+                url = generar_url_acceso(db, u.email, f"/reclamaciones/{nueva.id}")
+                enviar_correo_nueva_reclamacion([u.email], datos_rec, url_acceso=url)
+    except Exception as e:
+        print(f"[EMAIL] No se pudo enviar notificación de nueva reclamación: {e}")
+
     return _build_response(nueva)
 
 
@@ -205,6 +236,43 @@ def cambiar_estado(
         detalle=payload.detalle or f"Cambio de '{estado_anterior}' a '{payload.nuevo_estado}'",
     ))
     db.commit()
+
+    # ── Notificar a colisión cuando la reclamación pasa a gestión (solo si venía de otro estado) ──
+    if payload.nuevo_estado == "en_gestion" and estado_anterior != "en_gestion":
+        try:
+            # Buscar usuarios colisión de la misma sede primero
+            colision_users = (
+                db.query(Usuario)
+                .filter(Usuario.rol == "colision", Usuario.activo.is_(True), Usuario.sede == rec.sede)
+                .all()
+            )
+            # Si no hay en esa sede, notificar a todos los de colisión
+            if not colision_users:
+                colision_users = (
+                    db.query(Usuario)
+                    .filter(Usuario.rol == "colision", Usuario.activo.is_(True))
+                    .all()
+                )
+            datos_rec = {
+                "id":            rec.id,
+                "vin":           rec.vin,
+                "vehiculo":      rec.vehiculo,
+                "tipo_novedad":  rec.tipo_novedad,
+                "descripcion":   rec.descripcion,
+                "transportadora": rec.transportadora,
+                "no_remesa":     rec.no_remesa,
+                "no_manifiesto": rec.no_manifiesto,
+                "sede":          rec.sede or "—",
+                "reportado_por": rec.reportado_por,
+                "fecha_reporte": rec.fecha_reporte,
+            }
+            for u in colision_users:
+                if u.email:
+                    url = generar_url_acceso(db, u.email, f"/reclamaciones/{rec.id}")
+                    enviar_correo_colision([u.email], datos_rec, url_acceso=url)
+        except Exception as e:
+            print(f"[EMAIL] No se pudo notificar a colisión: {e}")
+
     return {"ok": True, "estado": payload.nuevo_estado}
 
 

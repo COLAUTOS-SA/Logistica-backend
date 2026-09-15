@@ -12,6 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.core.database import SessionLocal
 from app.core.email import enviar_correo_vencimientos
 from app.core.files import dias_habiles_transcurridos
+from app.core.tokens import generar_url_acceso
 from app.models.claims import NotificacionEnviada, Reclamacion
 from app.models.users import Usuario
 
@@ -19,8 +20,9 @@ from app.models.users import Usuario
 ESTADOS_ACTIVOS = ["abierta", "en_gestion"]
 
 
-def verificar_vencimientos() -> None:
-    """Revisa todas las reclamaciones activas y envía alertas si corresponde."""
+def verificar_vencimientos(correo_prueba: str = None) -> None:
+    """Revisa todas las reclamaciones activas y envía alertas si corresponde.
+    Si correo_prueba está definido, envía solo a ese correo (modo test)."""
     print("[SCHEDULER] Verificando vencimientos...")
     db = SessionLocal()
     try:
@@ -75,29 +77,42 @@ def verificar_vencimientos() -> None:
             .filter(Usuario.rol == "admin", Usuario.activo.is_(True))
             .all()
         )
-        destinatarios = [u.email for u in admins if u.email]
 
-        if not destinatarios:
+        if not admins:
             print("[SCHEDULER] No hay administradores con correo registrado.")
             return
 
-        enviar_correo_vencimientos(destinatarios, alertas, vencidas)
+        # En modo prueba, enviar solo al correo de prueba (sin token, sin registrar)
+        if correo_prueba:
+            print(f"[SCHEDULER] Modo prueba – enviando a {correo_prueba}")
+            enviar_correo_vencimientos([correo_prueba], alertas, vencidas)
+        else:
+            # Envío real: correo individual con magic link por admin
+            for u in admins:
+                if u.email:
+                    url = generar_url_acceso(db, u.email, "/reclamaciones")
+                    enviar_correo_vencimientos([u.email], alertas, vencidas, url_acceso=url)
 
-        # Solo registrar si el correo se envió sin errores
-        for item in alertas:
-            db.add(NotificacionEnviada(
-                reclamacion_id=item["id"],
-                tipo="alerta",
-                fecha=hoy,
-            ))
-        for item in vencidas:
-            db.add(NotificacionEnviada(
-                reclamacion_id=item["id"],
-                tipo="vencida",
-                fecha=hoy,
-            ))
-        db.commit()
-        print(f"[SCHEDULER] {len(alertas)} alertas y {len(vencidas)} vencidas notificadas.")
+        # Solo registrar en DB si es ejecución real (no prueba)
+        # En modo prueba el correo fue a un destino alternativo → no marcar como enviado
+        # para que el scheduler real del día siga funcionando
+        if not correo_prueba:
+            for item in alertas:
+                db.add(NotificacionEnviada(
+                    reclamacion_id=item["id"],
+                    tipo="alerta",
+                    fecha=hoy,
+                ))
+            for item in vencidas:
+                db.add(NotificacionEnviada(
+                    reclamacion_id=item["id"],
+                    tipo="vencida",
+                    fecha=hoy,
+                ))
+            db.commit()
+            print(f"[SCHEDULER] {len(alertas)} alertas y {len(vencidas)} vencidas notificadas.")
+        else:
+            print(f"[SCHEDULER] Modo prueba – notificaciones NO registradas en DB.")
 
     except Exception as exc:
         print(f"[SCHEDULER] Error al enviar correo: {exc}. Las notificaciones NO fueron registradas y se reintentarán.")

@@ -84,6 +84,7 @@ async def editar_documento(
     peso: Optional[str] = Form(None),
     remitente: Optional[str] = Form(None),
     destinatario: Optional[str] = Form(None),
+    observacion: Optional[str] = Form(None),
     archivo: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
@@ -106,6 +107,7 @@ async def editar_documento(
     if peso is not None:         doc.peso = peso
     if remitente is not None:    doc.remitente = remitente
     if destinatario is not None: doc.destinatario = destinatario
+    if observacion is not None:  doc.observacion = observacion
 
     if archivo and archivo.filename:
         ruta = guardar_documento(archivo, doc.tipo, doc.numero)
@@ -145,6 +147,7 @@ async def crear_documento(
     peso: Optional[str] = Form(None),
     remitente: Optional[str] = Form(None),
     destinatario: Optional[str] = Form(None),
+    observacion: Optional[str] = Form(None),
     archivo: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
@@ -177,6 +180,7 @@ async def crear_documento(
         peso=peso,
         remitente=remitente,
         destinatario=destinatario,
+        observacion=observacion,
     )
     db.add(nuevo)
     db.commit()

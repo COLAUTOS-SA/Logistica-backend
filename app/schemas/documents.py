@@ -25,6 +25,7 @@ class DocumentoResponse(BaseModel):
     peso: Optional[str] = None
     remitente: Optional[str] = None
     destinatario: Optional[str] = None
+    observacion: Optional[str] = None
 
     class Config:
         from_attributes = True
