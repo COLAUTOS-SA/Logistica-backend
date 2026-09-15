@@ -96,7 +96,8 @@ def guardar_archivo(archivo: UploadFile, ano: str, mes: str, rec_id: str, catego
     if categoria not in ARCHIVO_CATEGORIAS:
         _error_archivo("Categoría de archivo no válida")
     carpeta = BASE_ARCHIVOS / "reclamaciones" / _componente_seguro(ano, "Año") / _componente_seguro(mes, "Mes")
-    carpeta /= _componente_seguro(rec_id, "Identificador de reclamación") / ARCHIVO_CATEGORIAS[categoria]
+    carpeta /= _componente_seguro(rec_id, "Identificador de reclamación")
+    carpeta /= ARCHIVO_CATEGORIAS[categoria]
     nombre = _guardar_en_carpeta(archivo, carpeta)
     return (Path("reclamaciones") / ano / mes / _componente_seguro(rec_id, "Identificador de reclamación") / ARCHIVO_CATEGORIAS[categoria] / nombre).as_posix()
 

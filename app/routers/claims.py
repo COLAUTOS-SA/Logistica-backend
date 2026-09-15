@@ -155,10 +155,11 @@ async def crear_reclamacion(
     ))
 
     # Guardar archivos en disco y registrar en DB
+
     for cat, lista in [("foto", fotos), ("video", videos), ("soporte", soportes)]:
         for f in lista:
             if f and f.filename:
-                ruta = guardar_archivo(f, año, mes, rec_id)
+                ruta = guardar_archivo(f, año, mes, rec_id, cat)
                 db.add(Archivo(
                     reclamacion_id=rec_id,
                     categoria=cat,
@@ -190,10 +191,20 @@ async def crear_reclamacion(
             "reportado_por": nueva.reportado_por,
             "fecha_reporte": nueva.fecha_reporte,
         }
+        
         for u in users_notificar:
             if u.email:
-                url = generar_url_acceso(db, u.email, f"/reclamaciones/{nueva.id}")
-                enviar_correo_nueva_reclamacion([u.email], datos_rec, url_acceso=url)
+                url = generar_url_acceso(
+                    db,
+                    u.email,
+                    f"/reclamaciones/{nueva.id}"
+                )
+                enviar_correo_nueva_reclamacion(
+                    [u.email],
+                    datos_rec,
+                    url_acceso=url
+                )
+
     except Exception as e:
         print(f"[EMAIL] No se pudo enviar notificación de nueva reclamación: {e}")
 
@@ -316,7 +327,7 @@ async def subir_cotizacion(
 
     año = datetime.now().strftime("%Y")
     mes = datetime.now().strftime("%m")
-    ruta = guardar_archivo(archivo, año, mes, rec_id)
+    ruta = guardar_archivo(archivo, año, mes, rec_id, "cotizacion")
 
     rec.cotizacion = valor
     db.add(Archivo(
@@ -353,7 +364,7 @@ async def subir_factura(
     mes = datetime.now().strftime("%m")
 
     for archivo, cat in [(factura, "factura"), (certificado, "certificado")]:
-        ruta = guardar_archivo(archivo, año, mes, rec_id)
+        ruta = guardar_archivo(archivo, año, mes, rec_id, cat)
         db.add(Archivo(
             reclamacion_id=rec_id,
             categoria=cat,
@@ -391,7 +402,8 @@ async def subir_archivos_adicionales(
 
     for archivo in archivos:
         if archivo and archivo.filename:
-            ruta = guardar_archivo(archivo, año, mes, rec_id)
+            ruta = guardar_archivo(archivo, año, mes, rec_id, categoria)
+
             db.add(Archivo(
                 reclamacion_id=rec_id,
                 categoria=categoria,
@@ -399,6 +411,7 @@ async def subir_archivos_adicionales(
                 ruta_relativa=ruta,
                 subido_por=usuario,
             ))
+            
             guardados.append(archivo.filename)
 
     db.commit()
